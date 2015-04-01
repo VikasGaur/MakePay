@@ -1,0 +1,92 @@
+/************************************************************
+Name             : createPayment 
+Function         : To Create Payments after getting response from WorldPay.
+Author           : Astrea It Services Pvt. Ltd. , Noida India.
+Created On       : 25th March 2015
+Modified On      : 28th March 2015
+************************************************************/  
+//Trigger will be executed after creating WorldPay response record.
+trigger createPayment on WorldPay_Response__c (after insert) {
+//Variable initialization.
+    List<npe01__OppPayment__c> oppPayInsert = new List<npe01__OppPayment__c>();
+    set<String> transIdset = new set<String>();
+    string wResponseAmount,opportId,transId,oppPayId;
+    
+	//Retrieving loop for WorldPay Response.
+    for(WorldPay_Response__c wResponse : trigger.new){
+	//Getting Payment for recurring payment if succeeded.
+       if(wResponse.Status__c == 'Y' && wResponse.Transaction_ID__c != null && wResponse.Transaction_ID__c != '' &&
+           wResponse.Opportunity__c != null  && wResponse.Agreement_ID__c != null 
+           && wResponse.Agreement_ID__c != ''){
+                transIdset.add(wResponse.Transaction_ID__c);
+				//Initializing Payment Record and assigning WorldPay response value to payment.
+                npe01__OppPayment__c oppPay = new npe01__OppPayment__c();
+                oppPay.npe01__Opportunity__c = wResponse.Opportunity__c;
+                oppPay.npe01__Paid__c = true;
+                oppPay.npe01__Payment_Amount__c = wResponse.Amount__c;
+                oppPay.TransactionId__c = wResponse.Transaction_ID__c;
+                oppPay.npe01__Payment_Date__c = System.today();
+                oppPayInsert.add(oppPay);
+				//Getting Payment for oneoff Payment if succeeded.
+        }else if(wResponse.Status__c == 'Y' && wResponse.Transaction_ID__c != null && wResponse.Transaction_ID__c != '' &&
+                 wResponse.Opportunity__c != null && wResponse.Agreement_ID__c == null){
+				 //Assigning WorldPay response value to local variables for oneoff payment.
+                    opportId = wResponse.Opportunity__c;
+                    wResponseAmount = String.valueOf(wResponse.Amount__c);
+                    transId = wResponse.Transaction_ID__c;
+                    oppPayId = wResponse.Payment__c;
+					//Getting OpportunityId for cancelled payment.
+                 }
+        else if(wResponse.Status__c == 'C' && wResponse.Transaction_ID__c == null &&
+                 wResponse.Opportunity__c != null && wResponse.Agreement_ID__c == null){
+                    opportId = wResponse.Opportunity__c;
+                 }         
+    }
+    try{
+	//Fetching oneoff payment record
+        npe01__OppPayment__c oppPay = [SELECT id, npe01__Paid__c, npe01__Payment_Date__c, npe01__Payment_Amount__c, npe01__Opportunity__c
+                                        from npe01__OppPayment__c WHERE Id =: oppPayId];
+		//Fetching corresponding Opportunity.								
+        Opportunity stageUpdateOpp = [SELECT id, name , stageName from Opportunity WHERE id =: oppPay.npe01__Opportunity__c];                                  
+        if(opportId != null && opportId != '' && transId != null && transId != ''){
+		//Updating opportunities record.
+           oppPay.npe01__Paid__c = true;
+           oppPay.npe01__Payment_Date__c = system.today();
+           oppPay.npe01__Payment_Amount__c =  Decimal.valueOf(wResponseAmount);
+           oppPay.Response__c = 'Succeed';
+           oppPay.TransactionId__c = transId;
+           stageUpdateOpp.stageName = 'Paid';
+        }else if(opportId != null && opportId != '' && transId == null){
+           oppPay.Response__c = 'Cancelled';
+        }
+        update oppPay;
+        update stageUpdateOpp;
+    }catch(exception e){
+    
+    }
+	//Inserting all payments of recurring payment.
+    Map<String, String> transIdMap = new Map<String, String>();
+    if(oppPayInsert.size() > 0){
+          insert oppPayInsert;
+          for(npe01__OppPayment__c opPay : oppPayInsert){
+              if(opPay.TransactionId__c != null){
+                  transIdMap.put(opPay.TransactionId__c, opPay.Id);
+              }
+          }
+          try{
+		  //Updating corresponding WorldPay response.
+
+              List<WorldPay_Response__c> wordPayRes = [SELECT id, Payment__c, Transaction_ID__c from WorldPay_Response__c 
+                                                       WHERE Transaction_ID__c In : transIdSet];
+              if(wordPayRes.size() > 0){
+                  for(WorldPay_Response__c worldRes : wordPayRes){
+                     worldRes.Payment__c = transIdMap.get(worldRes.Transaction_ID__c);
+                  }
+              }
+              update wordPayRes;
+          }catch(exception e){
+          
+          }    
+    }
+    
+}
