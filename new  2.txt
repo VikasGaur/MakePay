@@ -1,3 +1,334 @@
+Basic flow of project
+
+1-	PHP – Filling of the form details which is submitted to Salesforce.
+2-	SALESFORCE – Generating webservice in salesforce 
+3-	WORLDPAY – It is a kind of payment gateway.
+
+Step By Step Code Analysis:
+
+1- PHP- In php user fill up the form , then submit the records to salesforce. Then redirected to Worldpay.
+
+a) config.php
+<?php
+	define("CLIENT_ID", "CLIENT_ID");
+	define("CLIENT_SECRET", "CLIENT_SECRET");
+    define("USER_NAME", "username");
+	define("PASSWORD", "password");
+?>
+
+b) Form1.php
+
+
+
+<html>
+	<head>
+	<title> Login Page </title>
+	</head>
+	<body>
+	<center>
+	<h1> Fill The Details</h1>
+	<form method = "Post" action= "form2.php">
+	Amount: <input type= "number" name ="amount"/><br><br>
+	Record Type Name: <input type="text" name= "rtype"/><br><br>
+	Organization name: <input type= "text" name ="orgname"/><br><br>
+	GiftAid.: YES<input type= "checkbox" name ="gaid" value="true"/><br><br>
+	 NO<input type="checkbox" name="gaid" value="false"><br><br>
+ 
+	Prod: <input type= "text" name ="prodid"/><br><br>
+	Quantity :<input type= "number" name ="quantity"/><br><br>
+	UnitPrice:<input type= "number" name ="unitprice"/><br><br>
+	
+	
+	<input type="submit" value="Sign in"/>
+	
+	</form>
+	</center>>
+	</body>
+</html>
+
+c) form2.php
+
+<?php
+
+require 'oauth_callback.php';
+$facebook = new OauthCallbackclass();
+//if(isset($_SESSION['myreward'])  && $_SESSION['myreward']!=''){
+	if ((!isset($_SESSION['access_token']) || $_SESSION['access_token'] == "") && (!isset($_SESSION['instance_url']) || $_SESSION['instance_url'] == "")){  
+		$facebook->getaccesstoken();
+		$access_token1=$_SESSION['access_token'];
+		$instance_url1=$_SESSION['instance_url'];
+	}
+	else{
+		$access_token1=$_SESSION['access_token'];
+		$instance_url1=$_SESSION['instance_url'];
+	}
+	if (!isset($access_token1) || $access_token1 == "") {
+		die("Error - access token missing from response!");
+	}
+
+	else if (!isset($instance_url1) || $instance_url1 == "") {
+		die("Error - instance URL missing from response!");
+	}
+	else{
+		 
+		$Name='';
+        $Stage='Prospect';
+        $BillingStreet='';
+		 $BillingCity='';
+		 $BillingCounty ='';
+		 $BillingCountry='';
+		 $BillingPostCode='';
+		 $DeliveryStreet='';
+		 $DeliveryCity ='';
+		 $DeliveryCounty=''; 
+		 $DeliveryCountry='';
+		 $DeliveryPostCode='';
+		$AccountId='0011100000g3NcPAAU';
+		$CampaignId='null';
+		$LeadSource='';
+		$LeadSourceOther='';
+		$DonatingOnBehalfOf='';
+		$OtherComment='';
+		$Amount = $_POST['amount'];
+		$RecordTypeName = $_POST['rtype'];
+		$organizationName = $_POST['orgname'];
+		$orgname = $_POST['orgname'];
+		$GiftAid = $_POST['gaid'];
+		$prodid = $_POST['prodid'];
+		$quantity = $_POST['quantity'];
+		$unitprice = $_POST['unitprice'];
+		
+		$pwqlist[]=array("pricebookentryid"=>$prodid,"quantity"=>$quantity,"unitprice"=>$unitprice);
+		$oldDate = '2015-02-06T23:00:00.000Z';
+		///$newDate = date('Y-m-d G:i', strtotime($oldDate));
+		$CloseDate=date('Y-m-d');
+		//$CloseDate=$newDate;
+		$url = "$instance_url1/services/apexrest/ProcessPayment/";
+		$content = json_encode(array("Name"=>$Name,"Stage" => $Stage,"CloseDate"=>$CloseDate,"Amount"=>$Amount,"organizationName"=>$organizationName,"RecordTypeName"=>$RecordTypeName,"orgname"=>$orgname,"BillingStreet"=>$BillingStreet,"BillingCity" => $BillingCity,"BillingCounty"=>$BillingCounty,"BillingCountry"=>$BillingCountry,"BillingPostCode"=>$BillingPostCode,"DeliveryStreet"=>$DeliveryStreet,"DeliveryCity"=>$DeliveryCity,"DeliveryCounty"=>$DeliveryCounty,"DeliveryCountry" => $DeliveryCountry,"DeliveryPostCode"=>$DeliveryPostCode,"AccountId"=>$AccountId,"CampaignId"=>$CampaignId,"LeadSource"=>$LeadSource,"LeadSourceOther"=>$LeadSourceOther,"DonatingOnBehalfOf"=>$DonatingOnBehalfOf,"OtherComment" => $OtherComment,"GiftAid"=>$GiftAid,"pwqlist"=>$pwqlist));
+		$curl = curl_init($url);
+		curl_setopt ($curl, CURLOPT_SSL_VERIFYHOST, 0);
+			curl_setopt ($curl, CURLOPT_SSL_VERIFYPEER, 0);
+			curl_setopt($curl, CURLOPT_HEADER, false);
+			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($curl, CURLOPT_HTTPHEADER,array("Authorization: OAuth $access_token1","Content-type: application/json"));
+			curl_setopt($curl, CURLOPT_POSTFIELDS, $content);
+			
+		$json_response = curl_exec($curl);
+		curl_close($curl);
+		$response = json_decode($json_response, true);
+		if($response['opppaymentlist'] != ''){
+			$amountvalue=$response['opp']['Amount'];
+			$conname=$response['conlist'][0]['Name'];
+			$MailingCity=$response['conlist'][0]['MailingCity'];
+			$Email=$response['conlist'][0]['Email'];
+			$MailingStreet=$response['conlist'][0]['MailingStreet'];
+			$Fax=$response['conlist'][0]['Fax'];
+			$MailingPostalCode=$response['conlist'][0]['MailingPostalCode'];
+			$MC_oppPaymentId=$response['conlist'][0]['Id'];
+			$urltosend="https://secure-test.worldpay.com/wcc/purchase?instId=000&cartId=abc123&currency=GBP&amount=".$amountvalue."&testMode=100&Name=".$conname."&address1=".$MailingCity."&address2=".$MailingStreet."&address3=&region=&town=".$MailingCity."&postcode=".$MailingPostalCode."&country=India&tel=&fax=".$Fax."&email=".$Email;				
+		   
+		   header('Location:'.$urltosend);
+	    }
+		else{
+			 header('Location:form1.php');
+		}
+		//print_r($response);
+		
+		
+	}
+//}
+?>
+
+
+d) oauth_callback.php
+
+<?php
+session_start();
+require 'config.php';
+class OauthCallbackclass{
+   function  getaccesstoken(){
+	$token_url = "https://test.salesforce.com/services/oauth2/token";
+	$params = "grant_type=password"
+		. "&client_id=" . CLIENT_ID
+		. "&client_secret=" . CLIENT_SECRET
+		. "&username=" . USER_NAME
+		. "&password=" . PASSWORD;
+
+	$curl = curl_init($token_url);
+	curl_setopt ($curl, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt ($curl, CURLOPT_SSL_VERIFYPEER, 0);
+	curl_setopt($curl, CURLOPT_HEADER, false);
+	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($curl, CURLOPT_POST, true);
+	curl_setopt($curl, CURLOPT_POSTFIELDS, $params);
+	$json_response = curl_exec($curl);
+	$status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+	if ( $status != 200 ) {
+		die("Error: call to token URL $token_url failed with status $status, response $json_response, curl_error " . curl_error($curl) . ", curl_errno " . curl_errno($curl));
+	}
+	curl_close($curl);
+	$response = json_decode($json_response, true);
+	$access_token = $response['access_token'];
+	$instance_url = $response['instance_url'];
+	if (!isset($access_token) || $access_token == "") {
+		die("Error - access token missing from response!");
+	}
+	if (!isset($instance_url) || $instance_url == "") {
+		die("Error - instance URL missing from response!");
+	}
+		
+	$_SESSION['access_token'] = $access_token;
+	$_SESSION['instance_url'] = $instance_url;
+   }
+  
+}
+?>
+
+2- SALESFORCE- The following webservice is being called.
+
+/********************************************************
+    @Name          :           RecurringProcessPayment
+    @Date          :           23 Feb, 2015
+    @Author        :           Astrea
+    @Description   :           To make a recurring payment from a web page
+**********************************************************/
+//class...
+@RestResource(urlMapping='/RecurringProcessPayment/*') 
+global with sharing class RecurringProcessPayment{
+
+// This webservice is POST type webservice
+     @HttpPost
+//Receiving parameter from web form.
+     global static PaymentInfo createNewOpportunity(Date CloseDate, Decimal Amount, String RecordTypeName, 
+                                                    String Howwouldyouliketopay,Decimal NumberOfPayments,Date PaymentStartDate,
+                                                    String PaymentMethod, String BillingStreet, String BillingCity, String BillingCounty, 
+                                                    String BillingCountry, String BillingPostCode, String DeliveryStreet, 
+                                                    String DeliveryCity, String DeliveryCounty, String DeliveryCountry, 
+                                                    String DeliveryPostCode, String AccountId, String Programme, String LeadSource,
+                                                    String LeadSourceOther, String DonatingOnBehalfOf, String OtherComment,
+                                                    Boolean GiftAid, Boolean CreatePayAutomatic, String ContactId,
+                                                    Date MemStartDate, String SizeOfTshirt, String ColourOfTshirt, Boolean PostalWelcomePack,
+                                                    String MemberLevel){
+													
+//fetching contact
+        Contact con = [SELECT Name, Accountid from Contact WHERE Id = :ContactId];
+        
+//Fetching program based on the received parameter
+        String oppRes = '';       
+        if(Programme != null){
+            try{
+                Programme__c prog = [SELECT id, Programme__c, Restricted_Unrestricted__c from Programme__c 
+                                     WHERE Programme__c =: Programme limit 1]; 
+                if(prog != null && prog.Restricted_Unrestricted__c == true){
+                    oppRes = 'Res';
+                }else if(prog != null && prog.Restricted_Unrestricted__c == false){
+                    oppRes = 'Unres';
+                }
+            }catch(exception e){
+            
+            }     
+        }
+               
+//Creating new opportunity based on the received parameter			   
+        Opportunity opp = new Opportunity();
+        opp.Name = con.Name + ' - ' + RecordTypeName +' - '+ system.Today().format();
+        opp.stagename = 'Pledged';      
+        opp.CloseDate = Date.today();     
+        opp.amount = amount;        
+        opp.accountid = con.AccountId;
+        opp.recordtypeid = Schema.SObjectType.Opportunity.getRecordTypeInfosByName().get(RecordTypeName).getRecordTypeId();               
+        opp.Billing_Street__c = BillingStreet;
+        opp.Billing_City__c = BillingCity;
+        opp.Billing_County__c = BillingCounty;
+        opp.Billing_Country__c = BillingCountry;
+        opp.Billing_Post_Code__c = BillingPostCode;
+        opp.LeadSource = LeadSource;
+        opp.npe01__Contact_Id_for_Role__c = ContactId;
+        
+        if(CreatePayAutomatic != null ) {
+            opp.npe01__Do_Not_Automatically_Create_Payment__c = CreatePayAutomatic;         
+        }
+
+        if (PaymentMethod == null || PaymentMethod == '') {
+            opp.Payment_Method__c = 'Credit Card';
+            } else {
+               opp.Payment_Method__c = PaymentMethod;       
+            }
+            
+        if (Howwouldyouliketopay == null || Howwouldyouliketopay == '') {
+            opp.How_would_you_like_to_pay__c = 'Recurring monthly payment';
+            } else {
+               opp.How_would_you_like_to_pay__c = Howwouldyouliketopay;     
+            }
+
+        if (PaymentStartDate == null) {
+            opp.Payment_Start_Date__c = Date.today() + 1;
+            } else {
+               opp.Payment_Start_Date__c = PaymentStartDate;    
+            }
+     
+        opp.Number_Of_Payments__c = numberofpayments;
+// Filling fields for donation type
+        
+        if (RecordTypeName == 'Donation') {
+            opp.Programme__c = Programme;
+            opp.Restricted_Unrestricted__c = oppRes;
+            opp.LeadSource = LeadSource;
+            opp.Lead_Source_Other__c = LeadSourceOther;
+            opp.Donating_on_behalf_of__c = DonatingOnBehalfOf;  
+            opp.Other_Comment__c  = OtherComment;
+            opp.Gift_Aid__c = GiftAid;                  
+        }
+        
+// Filling fields for Membership type
+
+        if (RecordTypeName == 'Membership') {
+           opp.npe01__Membership_Start_Date__c = MemStartDate;
+           opp.npe01__Membership_End_Date__c  =  MemStartDate.addYears(1);
+           opp.Colour_of_t_shirt__c = ColourOfTshirt;
+           opp.Size_of_t_shirt__c = SizeOfTshirt;
+           opp.Postal_welcome_pack__c = PostalWelcomePack;
+           opp.npe01__Member_Level__c = MemberLevel;
+           opp.npe01__Membership_Origin__c = 'New';
+           opp.Other_Comment__c = OtherComment;  
+           opp.Delivery_Street__c = DeliveryStreet;
+           opp.Delivery_City__c = DeliveryCity;
+           opp.Delivery_County__c = DeliveryCounty;
+           opp.Delivery_Country__c = DeliveryCountry;
+           opp.Delivery_Post_Code__c = DeliveryPostCode;           
+               
+        }
+        
+        insert opp;      
+
+        List<npe01__OppPayment__c> oppPaymentlist;       
+        oppPaymentlist = new List<npe01__OppPayment__c>();
+        
+        oppPaymentlist = [SELECT id, npe01__Payment_Amount__c, npe01__Opportunity__c
+                          from npe01__OppPayment__c WHERE npe01__Opportunity__c =: opp.id ];
+        
+        PaymentInfo pi = new PaymentInfo();
+        pi.opppaymentlist = opppaymentlist;
+        pi.opp = opp;
+        
+        return pi;                                          
+     }
+     
+// Making a wrapper class     
+     global class PaymentInfo{
+        public opportunity opp;
+        public List<npe01__OppPayment__c> opppaymentlist;
+        public PaymentInfo(){
+            opp = new Opportunity();
+            opppaymentlist = new List< npe01__OppPayment__c>();
+        }    
+    }
+   
+}
+
+3- Redirection from WorldPay
+As the payment response is created in salesforce after successful payment following trigger is fired:
+
 /************************************************************
 Name             : createPayment 
 Function         : To Create Payments after getting response from WorldPay.
@@ -12,14 +343,14 @@ trigger createPayment on WorldPay_Response__c (after insert) {
     set<String> transIdset = new set<String>();
     string wResponseAmount,opportId,transId,oppPayId;
     
-	//Retrieving loop for WorldPay Response.
+//Retrieving loop for WorldPay Response.
     for(WorldPay_Response__c wResponse : trigger.new){
-	//Getting Payment for recurring payment if succeeded.
+//Getting Payment for recurring payment if succeeded.
        if(wResponse.Status__c == 'Y' && wResponse.Transaction_ID__c != null && wResponse.Transaction_ID__c != '' &&
            wResponse.Opportunity__c != null  && wResponse.Agreement_ID__c != null 
            && wResponse.Agreement_ID__c != ''){
                 transIdset.add(wResponse.Transaction_ID__c);
-				//Initializing Payment Record and assigning WorldPay response value to payment.
+//Initializing Payment Record and assigning WorldPay response value to payment.
                 npe01__OppPayment__c oppPay = new npe01__OppPayment__c();
                 oppPay.npe01__Opportunity__c = wResponse.Opportunity__c;
                 oppPay.npe01__Paid__c = true;
@@ -27,15 +358,15 @@ trigger createPayment on WorldPay_Response__c (after insert) {
                 oppPay.TransactionId__c = wResponse.Transaction_ID__c;
                 oppPay.npe01__Payment_Date__c = System.today();
                 oppPayInsert.add(oppPay);
-				//Getting Payment for oneoff Payment if succeeded.
+//Getting Payment for oneoff Payment if succeeded.
         }else if(wResponse.Status__c == 'Y' && wResponse.Transaction_ID__c != null && wResponse.Transaction_ID__c != '' &&
                  wResponse.Opportunity__c != null && wResponse.Agreement_ID__c == null){
-				 //Assigning WorldPay response value to local variables for oneoff payment.
+//Assigning WorldPay response value to local variables for oneoff payment.
                     opportId = wResponse.Opportunity__c;
                     wResponseAmount = String.valueOf(wResponse.Amount__c);
                     transId = wResponse.Transaction_ID__c;
                     oppPayId = wResponse.Payment__c;
-					//Getting OpportunityId for cancelled payment.
+//Getting OpportunityId for cancelled payment.
                  }
         else if(wResponse.Status__c == 'C' && wResponse.Transaction_ID__c == null &&
                  wResponse.Opportunity__c != null && wResponse.Agreement_ID__c == null){
@@ -43,13 +374,13 @@ trigger createPayment on WorldPay_Response__c (after insert) {
                  }         
     }
     try{
-	//Fetching oneoff payment record
+//Fetching oneoff payment record
         npe01__OppPayment__c oppPay = [SELECT id, npe01__Paid__c, npe01__Payment_Date__c, npe01__Payment_Amount__c, npe01__Opportunity__c
                                         from npe01__OppPayment__c WHERE Id =: oppPayId];
-		//Fetching corresponding Opportunity.								
+//Fetching corresponding Opportunity.								
         Opportunity stageUpdateOpp = [SELECT id, name , stageName from Opportunity WHERE id =: oppPay.npe01__Opportunity__c];                                  
         if(opportId != null && opportId != '' && transId != null && transId != ''){
-		//Updating opportunities record.
+//Updating opportunities record.
            oppPay.npe01__Paid__c = true;
            oppPay.npe01__Payment_Date__c = system.today();
            oppPay.npe01__Payment_Amount__c =  Decimal.valueOf(wResponseAmount);
@@ -64,7 +395,7 @@ trigger createPayment on WorldPay_Response__c (after insert) {
     }catch(exception e){
     
     }
-	//Inserting all payments of recurring payment.
+//Inserting all payments of recurring payment.
     Map<String, String> transIdMap = new Map<String, String>();
     if(oppPayInsert.size() > 0){
           insert oppPayInsert;
@@ -74,7 +405,7 @@ trigger createPayment on WorldPay_Response__c (after insert) {
               }
           }
           try{
-		  //Updating corresponding WorldPay response.
+//Updating corresponding WorldPay response.
 
               List<WorldPay_Response__c> wordPayRes = [SELECT id, Payment__c, Transaction_ID__c from WorldPay_Response__c 
                                                        WHERE Transaction_ID__c In : transIdSet];
