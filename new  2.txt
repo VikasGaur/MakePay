@@ -23,6 +23,38 @@ b) Form1.php
 <html>
 	<head>
 	<title> Login Page </title>
+	<script>
+//This is a code snippet for auto-focus that i have used using jquery.
+	var j$=jQuery.noConflict();
+	 j$(document).ready(function(){
+	            //alert('Hiii');
+	            document.title = 'Reservation';// Change it to your respective screen title if using MenuandSubMenu bar 
+	//For input Field with type="text"
+	j$('input[type=text]').focus(function(){
+	                
+	            j$(this).css("background","#ffc0cb");//rgba(240, 128, 128, 0.47)
+	            });
+	            j$("input[type=text]").focusout(function(){
+	                j$(this).css("background","");
+	            });
+	//For all text-area type field
+	
+	            j$("textarea").focus(function(){
+	                j$(this).css("background","#ffc0cb");//rgba(174, 199, 232, 1)
+	            });
+	            j$("textarea").focusout(function(){
+	                j$(this).css("background","");
+	            });
+	//For all pick-list type field
+	
+	            j$("select").focus(function(){
+	                j$(this).css("background","#ffc0cb");
+	            });
+	            j$("select").focusout(function(){
+	                j$(this).css("background","");
+	            });
+	});
+	</script>
 	</head>
 	<body>
 	<center>
